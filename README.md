@@ -1,5 +1,7 @@
 # CP5-EDGE
 
+![image](https://github.com/user-attachments/assets/ad44992a-fe0c-467d-a6d8-0af709d91d0c)
+
 
 ## Descrição
 
