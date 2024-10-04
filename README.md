@@ -36,89 +36,188 @@ Utilize o código fornecido anteriormente para fazer a leitura dos sensores e vi
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
-
-// Definições de pinos
-#define DHTPIN 4       // Pino onde o DHT11 está conectado
-#define DHTTYPE DHT11  // Define o tipo do sensor DHT
-
-// Configurações WiFi e MQTT
-const char* ssid = "sua_rede";
-const char* password = "senha_da_sua_rede";
-const char* mqtt_server = "ip_do_seu_server";
-
+ 
+// Configurações - variáveis editáveis
+const char* default_SSID = "FIAP-IBM"; // Nome da rede Wi-Fi
+const char* default_PASSWORD = "Challenge@24!"; // Senha da rede Wi-Fi
+const char* default_BROKER_MQTT = "18.208.160.16"; // IP do Broker MQTT
+const int default_BROKER_PORT = 1883; // Porta do Broker MQTT
+const char* default_TOPICO_SUBSCRIBE = "/TEF/device042/cmd"; // Tópico MQTT de escuta
+const char* default_TOPICO_PUBLISH_1 = "/TEF/device042/attrs"; // Tópico MQTT de envio de informações para Broker
+const char* default_TOPICO_PUBLISH_2 = "/TEF/device042/attrs/p"; // Tópico MQTT de envio de informações para Broker
+const char* default_ID_MQTT = "fiware_042"; // ID MQTT
+const int default_D4 = 2; // Pino do LED onboard
+const int ldrPin = 34; // Pino do LDR para leitura analógica
+#define DHTPIN 4 // Pino de dados do DHT11
+#define DHTTYPE DHT11 // Tipo de sensor DHT11
+ 
+// Variáveis para configurações editáveis
+char* SSID = const_cast<char*>(default_SSID);
+char* PASSWORD = const_cast<char*>(default_PASSWORD);
+char* BROKER_MQTT = const_cast<char*>(default_BROKER_MQTT);
+int BROKER_PORT = default_BROKER_PORT;
+char* TOPICO_SUBSCRIBE = const_cast<char*>(default_TOPICO_SUBSCRIBE);
+char* TOPICO_PUBLISH_1 = const_cast<char*>(default_TOPICO_PUBLISH_1);
+char* TOPICO_PUBLISH_2 = const_cast<char*>(default_TOPICO_PUBLISH_2);
+char* ID_MQTT = const_cast<char*>(default_ID_MQTT);
+int D4 = default_D4;
+ 
 WiFiClient espClient;
-PubSubClient client(espClient);
-DHT dht(DHTPIN, DHTTYPE);
-
-// Variáveis para o LDR
-const int ldrPin = 34;
-
+PubSubClient MQTT(espClient);
+DHT dht(DHTPIN, DHTTYPE);  // Inicializa o sensor DHT
+char EstadoSaida = '0';
+ 
+void initSerial() {
+    Serial.begin(115200);
+}
+ 
+void initWiFi() {
+    delay(10);
+    Serial.println("------Conexao WI-FI------");
+    Serial.print("Conectando-se na rede: ");
+    Serial.println(SSID);
+    Serial.println("Aguarde");
+    reconectWiFi();
+}
+ 
+void initMQTT() {
+    MQTT.setServer(BROKER_MQTT, BROKER_PORT);
+    MQTT.setCallback(mqtt_callback);
+}
+ 
 void setup() {
-  Serial.begin(115200);
-  dht.begin();
-  
-  setup_wifi();
-  client.setServer(mqtt_server, 1883);
-
-  pinMode(ldrPin, INPUT);  // Configura o pino do LDR como entrada
+    InitOutput();
+    initSerial();
+    dht.begin(); // Inicializa o sensor DHT11
+    pinMode(ldrPin, INPUT); // Configura o pino do LDR como entrada
+    initWiFi();
+    initMQTT();
+    delay(5000);
+    MQTT.publish(TOPICO_PUBLISH_1, "s|on");
 }
-
+ 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-  
-  // Leitura dos sensores
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  int ldrValue = analogRead(ldrPin);
-
-  if (isnan(h) || isnan(t)) {
-    Serial.println("Erro ao ler do DHT11");
-    return;
-  }
-
-  // Publica temperatura, umidade e luminosidade no servidor MQTT
-  String payload = "Temperatura: " + String(t) + "C, Umidade: " + String(h) + "%, Luminosidade: " + String(ldrValue);
-  client.publish("sensor/dados", payload.c_str());
-
-  delay(2000);  // Envia os dados a cada 2 segundos
+    VerificaConexoesWiFIEMQTT();
+    EnviaEstadoOutputMQTT();
+    handleSensores(); // Função para leitura do DHT11 e LDR
+    MQTT.loop();
 }
-
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Conectando-se a ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi conectado.");
-  Serial.println("IP obtido: ");
-  Serial.println(WiFi.localIP());
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Tentando conectar ao servidor MQTT...");
-    if (client.connect("ESP32Client")) {
-      Serial.println("conectado");
-      client.subscribe("sensor/comando");
-    } else {
-      Serial.print("falha, rc=");
-      Serial.print(client.state());
-      Serial.println(" tentando novamente em 5 segundos");
-      delay(5000);
+ 
+void reconectWiFi() {
+    if (WiFi.status() == WL_CONNECTED)
+        return;
+    WiFi.begin(SSID, PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(100);
+        Serial.print(".");
     }
-  }
+    Serial.println();
+    Serial.println("Conectado com sucesso na rede ");
+    Serial.print(SSID);
+    Serial.println("IP obtido: ");
+    Serial.println(WiFi.localIP());
+ 
+    // Garantir que o LED inicie desligado
+    digitalWrite(D4, LOW);
 }
+ 
+void mqtt_callback(char* topic, byte* payload, unsigned int length) {
+    String msg;
+    for (int i = 0; i < length; i++) {
+        char c = (char)payload[i];
+        msg += c;
+    }
+    Serial.print("- Mensagem recebida: ");
+    Serial.println(msg);
+ 
+    String onTopic = String("device001@on|");
+    String offTopic = String("device001@off|");
+ 
+    // Compara com o tópico recebido
+    if (msg.equals(onTopic)) {
+        digitalWrite(D4, HIGH);
+        EstadoSaida = '1';
+    }
+ 
+    if (msg.equals(offTopic)) {
+        digitalWrite(D4, LOW);
+        EstadoSaida = '0';
+    }
+}
+ 
+void VerificaConexoesWiFIEMQTT() {
+    if (!MQTT.connected())
+        reconnectMQTT();
+    reconectWiFi();
+}
+ 
+void EnviaEstadoOutputMQTT() {
+    if (EstadoSaida == '1') {
+        MQTT.publish(TOPICO_PUBLISH_1, "s|on");
+        Serial.println("- Led Ligado");
+    }
+ 
+    if (EstadoSaida == '0') {
+        MQTT.publish(TOPICO_PUBLISH_1, "s|off");
+        Serial.println("- Led Desligado");
+    }
+    Serial.println("- Estado do LED onboard enviado ao broker!");
+    delay(1000);
+}
+ 
+void InitOutput() {
+    pinMode(D4, OUTPUT);
+    digitalWrite(D4, HIGH);
+    boolean toggle = false;
+ 
+    for (int i = 0; i <= 10; i++) {
+        toggle = !toggle;
+        digitalWrite(D4, toggle);
+        delay(200);
+    }
+}
+ 
+void reconnectMQTT() {
+    while (!MQTT.connected()) {
+        Serial.print("* Tentando se conectar ao Broker MQTT: ");
+        Serial.println(BROKER_MQTT);
+        if (MQTT.connect(ID_MQTT)) {
+            Serial.println("Conectado com sucesso ao broker MQTT!");
+            MQTT.subscribe(TOPICO_SUBSCRIBE);
+        } else {
+            Serial.println("Falha ao reconectar no broker.");
+            Serial.println("Haverá nova tentativa de conexão em 2s");
+            delay(2000);
+        }
+    }
+}
+ 
+void handleSensores() {
+    // Lê temperatura e umidade do DHT11
+    float humidity = dht.readHumidity();
+    float temperature = dht.readTemperature();
+ 
+    // Lê a luminosidade do LDR
+    int ldrValue = analogRead(ldrPin);
+    int luminosity = map(ldrValue, 0, 4095, 0, 100);
+ 
+    // Verifica se a leitura do DHT foi bem-sucedida
+    if (isnan(humidity) || isnan(temperature)) {
+        Serial.println("Falha ao ler o sensor DHT!");
+        return;
+    }
+ 
+    // Prepara a mensagem para publicar
+    String sensorData = "Temperatura: " + String(temperature) + "C, " +
+                        "Umidade: " + String(humidity) + "%, " +
+                        "Luminosidade: " + String(luminosity);
+ 
+    Serial.println(sensorData);
+ 
+    // Publica no tópico MQTT os dados dos sensores
+    MQTT.publish(TOPICO_PUBLISH_2, sensorData.c_str());
+}
+ 
 ```
 ## Integrantes
 
