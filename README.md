@@ -1,5 +1,9 @@
 # CP5-EDGE
 
+Link do projeto
+
+https://wokwi.com/projects/410679081435333633
+
 ![image](https://github.com/user-attachments/assets/ad44992a-fe0c-467d-a6d8-0af709d91d0c)
 
 
@@ -38,9 +42,9 @@ Utilize o código fornecido anteriormente para fazer a leitura dos sensores e vi
 #define DHTTYPE DHT11  // Define o tipo do sensor DHT
 
 // Configurações WiFi e MQTT
-const char* ssid = "5.G_RDLM24";
-const char* password = "Daniroluma722";
-const char* mqtt_server = "192.168.0.100";
+const char* ssid = "sua_rede";
+const char* password = "senha_da_sua_rede";
+const char* mqtt_server = "ip_do_seu_server";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
