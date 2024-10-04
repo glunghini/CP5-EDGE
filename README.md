@@ -37,7 +37,7 @@ Utilize o código fornecido anteriormente para fazer a leitura dos sensores e vi
 #include <PubSubClient.h>
 #include <DHT.h>
  
-// Configurações - variáveis editáveis
+
 const char* default_SSID = "FIAP-IBM"; // Nome da rede Wi-Fi
 const char* default_PASSWORD = "Challenge@24!"; // Senha da rede Wi-Fi
 const char* default_BROKER_MQTT = "18.208.160.16"; // IP do Broker MQTT
@@ -50,8 +50,7 @@ const int default_D4 = 2; // Pino do LED onboard
 const int ldrPin = 34; // Pino do LDR para leitura analógica
 #define DHTPIN 4 // Pino de dados do DHT11
 #define DHTTYPE DHT11 // Tipo de sensor DHT11
- 
-// Variáveis para configurações editáveis
+
 char* SSID = const_cast<char*>(default_SSID);
 char* PASSWORD = const_cast<char*>(default_PASSWORD);
 char* BROKER_MQTT = const_cast<char*>(default_BROKER_MQTT);
@@ -64,7 +63,7 @@ int D4 = default_D4;
  
 WiFiClient espClient;
 PubSubClient MQTT(espClient);
-DHT dht(DHTPIN, DHTTYPE);  // Inicializa o sensor DHT
+DHT dht(DHTPIN, DHTTYPE);  
 char EstadoSaida = '0';
  
 void initSerial() {
@@ -88,8 +87,8 @@ void initMQTT() {
 void setup() {
     InitOutput();
     initSerial();
-    dht.begin(); // Inicializa o sensor DHT11
-    pinMode(ldrPin, INPUT); // Configura o pino do LDR como entrada
+    dht.begin(); 
+    pinMode(ldrPin, INPUT); 
     initWiFi();
     initMQTT();
     delay(5000);
@@ -99,7 +98,7 @@ void setup() {
 void loop() {
     VerificaConexoesWiFIEMQTT();
     EnviaEstadoOutputMQTT();
-    handleSensores(); // Função para leitura do DHT11 e LDR
+    handleSensores();
     MQTT.loop();
 }
  
@@ -133,7 +132,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     String onTopic = String("device001@on|");
     String offTopic = String("device001@off|");
  
-    // Compara com o tópico recebido
+    
     if (msg.equals(onTopic)) {
         digitalWrite(D4, HIGH);
         EstadoSaida = '1';
@@ -193,28 +192,27 @@ void reconnectMQTT() {
 }
  
 void handleSensores() {
-    // Lê temperatura e umidade do DHT11
+    
     float humidity = dht.readHumidity();
     float temperature = dht.readTemperature();
  
-    // Lê a luminosidade do LDR
+    
     int ldrValue = analogRead(ldrPin);
     int luminosity = map(ldrValue, 0, 4095, 0, 100);
  
-    // Verifica se a leitura do DHT foi bem-sucedida
+    
     if (isnan(humidity) || isnan(temperature)) {
         Serial.println("Falha ao ler o sensor DHT!");
         return;
     }
  
-    // Prepara a mensagem para publicar
+    
     String sensorData = "Temperatura: " + String(temperature) + "C, " +
                         "Umidade: " + String(humidity) + "%, " +
                         "Luminosidade: " + String(luminosity);
  
     Serial.println(sensorData);
  
-    // Publica no tópico MQTT os dados dos sensores
     MQTT.publish(TOPICO_PUBLISH_2, sensorData.c_str());
 }
  
