@@ -115,9 +115,13 @@ void reconnect() {
 }
 ```
 ## Integrantes
-**Guilherme Lunghini RM556892
-**Luan Ramos RM558537
-**Matheus Bortolotto RM555189
-**Matheus Ricciotti RM556930
+
+Guilherme Lunghini RM556892
+
+Luan Ramos RM558537
+
+Matheus Bortolotto RM555189
+
+Matheus Ricciotti RM556930
 
 
