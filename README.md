@@ -116,7 +116,6 @@ void reconectWiFi() {
     Serial.println("IP obtido: ");
     Serial.println(WiFi.localIP());
  
-    // Garantir que o LED inicie desligado
     digitalWrite(D4, LOW);
 }
  
