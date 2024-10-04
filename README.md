@@ -2,7 +2,8 @@
 
 Link do projeto
 
-https://wokwi.com/projects/410679081435333633
+[https://wokwi.com/projects/410679081435333633](https://wokwi.com/projects/410858903870433281
+ )
 
 ![image](https://github.com/user-attachments/assets/ad44992a-fe0c-467d-a6d8-0af709d91d0c)
 
